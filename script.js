@@ -47,6 +47,7 @@ navItems.forEach(item => {
         if (window.innerWidth < 768) toggleSidebar();
         if (target === 'dashboard') actualizarDashboard();
         if (target === 'cuentas') renderizarCuentas();
+        if (target === 'alertas') renderizarAlertas();
     });
 });
 
@@ -389,6 +390,8 @@ function resetForm() {
 function actualizarUI() {
     if(document.getElementById('dashboard').classList.contains('active')) actualizarDashboard();
     if(document.getElementById('cuentas').classList.contains('active')) renderizarCuentas(document.getElementById('searchInput').value);
+    if(document.getElementById('alertas').classList.contains('active')) renderizarAlertas();
+    actualizarBadgeAlertas();
 }
 
 // --- INIT ---
@@ -396,6 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
     telesData=[{nombre:'',telefono:'',direccion:'',cuotas:0,deuda:0,pagado:false}];
     renderizarTelesForm();
     actualizarDashboard();
+    actualizarBadgeAlertas();
 
     setTimeout(()=>{
         const loader=document.getElementById('loader');
@@ -415,3 +419,225 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// =============================================
+// --- SISTEMA DE ALERTAS WHATSAPP ---
+// =============================================
+
+let filtroAlertaActual = 'todos';
+
+// Limpiar número de teléfono para WhatsApp (solo dígitos, agregar código país si falta)
+function limpiarTelefono(tel) {
+    if (!tel) return '';
+    let num = tel.replace(/[^0-9]/g, '');
+    // Si empieza con 15 o con un número local argentino, agregar 54
+    if (num.length === 10) num = '54' + num;
+    else if (num.length === 11 && num.startsWith('0')) num = '54' + num.substring(1);
+    else if (num.length < 10) return ''; // número inválido
+    return num;
+}
+
+// Generar mensaje personalizado según los días restantes
+function generarMensajeWhatsApp(nombre, dias, fechaVenc) {
+    const nombreCliente = nombre || 'cliente';
+    const fechaFormateada = fmtFecha(fechaVenc);
+
+    if (dias < 0) {
+        const diasVencidos = Math.abs(dias);
+        return `Hola ${nombreCliente} 👋\n\nTe informamos que tu suscripción de *IMPAKTO TV* venció hace *${diasVencidos} día${diasVencidos!==1?'s':''}* (${fechaFormateada}).\n\n⚠️ Tu servicio puede ser suspendido en cualquier momento.\n\nPor favor, comunicate con nosotros para renovar y seguir disfrutando de todo el contenido. 📺\n\n¡Gracias por elegirnos! 🙌\n_IMPAKTO TV_`;
+    }
+    if (dias === 0) {
+        return `Hola ${nombreCliente} 👋\n\n🔴 Tu suscripción de *IMPAKTO TV* *VENCE HOY* (${fechaFormateada}).\n\nPara no perder el acceso al contenido, te pedimos que abones tu cuota hoy mismo.\n\n📺 ¡Seguí disfrutando sin interrupciones!\n\n¡Gracias por elegirnos! 🙌\n_IMPAKTO TV_`;
+    }
+    if (dias <= 3) {
+        return `Hola ${nombreCliente} 👋\n\n🟡 Tu suscripción de *IMPAKTO TV* vence en *${dias} día${dias!==1?'s':''}* (${fechaFormateada}).\n\n¡No te quedes sin tu contenido favorito! Aboná antes del vencimiento para seguir disfrutando. 📺\n\n¡Gracias por elegirnos! 🙌\n_IMPAKTO TV_`;
+    }
+    return `Hola ${nombreCliente} 👋\n\n📢 Te recordamos que tu suscripción de *IMPAKTO TV* vence el *${fechaFormateada}* (en ${dias} días).\n\nAboná con tiempo para no perder el acceso. 📺\n\n¡Gracias por ser parte de IMPAKTO TV! 🙌\n_IMPAKTO TV_`;
+}
+
+// Abrir WhatsApp con mensaje prellenado
+window.enviarWhatsApp = function(telefono, nombre, dias, fecha) {
+    const num = limpiarTelefono(telefono);
+    if (!num) {
+        showToast('Este cliente no tiene teléfono cargado', true);
+        return;
+    }
+    const msg = generarMensajeWhatsApp(nombre, dias, fecha);
+    const url = `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+    // Registrar que ya se envió
+    registrarEnvio(telefono);
+    showToast(`WhatsApp abierto para ${nombre || 'cliente'}`);
+};
+
+// Registrar envíos para no repetir
+function registrarEnvio(telefono) {
+    const enviados = JSON.parse(localStorage.getItem('impakto_wsp_enviados') || '{}');
+    const hoy = new Date().toISOString().split('T')[0];
+    enviados[telefono] = hoy;
+    localStorage.setItem('impakto_wsp_enviados', JSON.stringify(enviados));
+}
+
+function yaEnviadoHoy(telefono) {
+    const enviados = JSON.parse(localStorage.getItem('impakto_wsp_enviados') || '{}');
+    const hoy = new Date().toISOString().split('T')[0];
+    return enviados[telefono] === hoy;
+}
+
+// Obtener lista de alertas (clientes con vencimiento ≤7 días o vencidos)
+function obtenerAlertas() {
+    const alertas = [];
+    cuentas.forEach(cuenta => {
+        const dias = calcularDias(cuenta.fecha);
+        if (dias <= 7) {
+            (cuenta.teles || []).forEach((tele, ti) => {
+                if (!tele.pagado) {
+                    alertas.push({
+                        cuentaId: cuenta.id,
+                        email: cuenta.email,
+                        fecha: cuenta.fecha,
+                        dias: dias,
+                        teleIdx: ti,
+                        nombre: tele.nombre || 'Sin nombre',
+                        telefono: tele.telefono || '',
+                        direccion: tele.direccion || '',
+                        enviado: yaEnviadoHoy(tele.telefono)
+                    });
+                }
+            });
+        }
+    });
+    alertas.sort((a, b) => a.dias - b.dias);
+    return alertas;
+}
+
+// Actualizar badge en sidebar
+function actualizarBadgeAlertas() {
+    const badge = document.getElementById('alertaBadge');
+    if (!badge) return;
+    const alertas = obtenerAlertas();
+    const pendientes = alertas.filter(a => !a.enviado).length;
+    if (pendientes > 0) {
+        badge.textContent = pendientes;
+        badge.classList.remove('hidden');
+        badge.classList.add('flex');
+    } else {
+        badge.classList.add('hidden');
+        badge.classList.remove('flex');
+    }
+}
+
+// Filtrar alertas
+window.filtrarAlertas = function(tipo) {
+    filtroAlertaActual = tipo;
+    // Actualizar estilos de botones
+    document.querySelectorAll('.filtro-btn').forEach(btn => {
+        btn.classList.remove('active-filtro', 'border-green-500/50', 'bg-green-500/10', 'text-green-400');
+        btn.classList.add('border-impakto-gray/20', 'text-impakto-light');
+    });
+    const activeBtn = document.getElementById(`filtro-${tipo}`);
+    if (activeBtn) {
+        activeBtn.classList.add('active-filtro', 'border-green-500/50', 'bg-green-500/10', 'text-green-400');
+        activeBtn.classList.remove('border-impakto-gray/20', 'text-impakto-light');
+    }
+    renderizarAlertas();
+};
+
+// Enviar a todos los pendientes uno por uno
+window.enviarTodosWhatsApp = function() {
+    let alertas = obtenerAlertas().filter(a => !a.enviado && a.telefono);
+    if (filtroAlertaActual === 'critico') alertas = alertas.filter(a => a.dias <= 3);
+    else if (filtroAlertaActual === 'urgente') alertas = alertas.filter(a => a.dias > 3 && a.dias <= 7);
+    else if (filtroAlertaActual === 'vencidas') alertas = alertas.filter(a => a.dias < 0);
+
+    if (!alertas.length) {
+        showToast('No hay mensajes pendientes para enviar', true);
+        return;
+    }
+
+    if (!confirm(`Se abrirán ${alertas.length} ventanas de WhatsApp.\n¿Continuar?`)) return;
+
+    let delay = 0;
+    alertas.forEach(a => {
+        setTimeout(() => {
+            enviarWhatsApp(a.telefono, a.nombre, a.dias, a.fecha);
+        }, delay);
+        delay += 1500;
+    });
+};
+
+// Renderizar cards de alertas
+function renderizarAlertas() {
+    const cont = document.getElementById('alertasContainer');
+    const empty = document.getElementById('alertasEmpty');
+    if (!cont) return;
+    cont.innerHTML = '';
+
+    let alertas = obtenerAlertas();
+
+    // Aplicar filtro
+    if (filtroAlertaActual === 'critico') alertas = alertas.filter(a => a.dias >= 0 && a.dias <= 3);
+    else if (filtroAlertaActual === 'urgente') alertas = alertas.filter(a => a.dias > 3 && a.dias <= 7);
+    else if (filtroAlertaActual === 'vencidas') alertas = alertas.filter(a => a.dias < 0);
+
+    if (!alertas.length) {
+        empty.classList.remove('hidden'); empty.classList.add('flex');
+        return;
+    }
+    empty.classList.add('hidden'); empty.classList.remove('flex');
+
+    alertas.forEach(a => {
+        let urgColor, urgIcon, urgText, urgBorder;
+        if (a.dias < 0) {
+            urgColor = 'text-red-400'; urgIcon = 'fa-times-circle'; urgText = `Venció hace ${Math.abs(a.dias)}d`; urgBorder = 'border-red-500/30';
+        } else if (a.dias === 0) {
+            urgColor = 'text-red-500'; urgIcon = 'fa-fire'; urgText = '¡VENCE HOY!'; urgBorder = 'border-red-500/50';
+        } else if (a.dias <= 3) {
+            urgColor = 'text-yellow-400'; urgIcon = 'fa-exclamation-triangle'; urgText = `${a.dias}d restantes`; urgBorder = 'border-yellow-500/30';
+        } else {
+            urgColor = 'text-blue-400'; urgIcon = 'fa-bell'; urgText = `${a.dias}d restantes`; urgBorder = 'border-blue-500/30';
+        }
+
+        const enviadoBadge = a.enviado
+            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-900/40 text-green-400 border border-green-500/50 flex items-center gap-1"><i class="fas fa-check"></i>Enviado hoy</span>`
+            : '';
+
+        const card = document.createElement('div');
+        card.className = `glass-panel rounded-2xl border ${urgBorder} p-4 transition-all hover:shadow-lg`;
+        card.innerHTML = `
+            <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <div class="w-11 h-11 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center flex-shrink-0">
+                        <i class="fab fa-whatsapp text-green-400 text-lg"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-bold text-white text-sm">${a.nombre}</span>
+                            <span class="${urgColor} text-xs font-semibold flex items-center gap-1"><i class="fas ${urgIcon} text-[10px]"></i>${urgText}</span>
+                            ${enviadoBadge}
+                        </div>
+                        <div class="flex items-center gap-3 mt-1 text-xs text-impakto-gray">
+                            ${a.telefono ? `<span class="flex items-center gap-1"><i class="fas fa-phone text-[10px]"></i>${a.telefono}</span>` : '<span class="text-red-400">Sin teléfono</span>'}
+                            <span class="flex items-center gap-1"><i class="fas fa-calendar text-[10px]"></i>${fmtFecha(a.fecha)}</span>
+                            <span class="truncate max-w-[120px]">${a.email}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <button onclick="previsualizarMensaje('${a.nombre.replace(/'/g,"\\'")}',${a.dias},'${a.fecha}')" class="px-3 py-2 rounded-xl text-xs font-medium bg-impakto-dark text-impakto-light border border-impakto-gray/20 hover:border-impakto-red/50 hover:text-white transition-all flex items-center gap-1" title="Ver mensaje">
+                        <i class="fas fa-eye"></i><span class="hidden sm:inline">Ver</span>
+                    </button>
+                    <button onclick="enviarWhatsApp('${a.telefono}','${a.nombre.replace(/'/g,"\\'")}',${a.dias},'${a.fecha}')" class="px-4 py-2 rounded-xl text-sm font-semibold ${a.telefono ? 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_10px_rgba(74,222,128,0.3)]' : 'bg-gray-700 text-gray-400 cursor-not-allowed'} transition-all flex items-center gap-2" ${!a.telefono ? 'disabled' : ''}>
+                        <i class="fab fa-whatsapp"></i> Enviar
+                    </button>
+                </div>
+            </div>`;
+        cont.appendChild(card);
+    });
+}
+
+// Previsualizar mensaje
+window.previsualizarMensaje = function(nombre, dias, fecha) {
+    const msg = generarMensajeWhatsApp(nombre, dias, fecha);
+    alert('📱 Vista previa del mensaje:\n\n' + msg);
+};
