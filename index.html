@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>CONTROL IMPAKTO TV</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Panel de administración de cuentas y suscripciones de Impakto TV">
+    <meta name="theme-color" content="#ff2a75">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="IMPAKTO TV">
+
+    <!-- Apple / iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="IMPAKTO TV">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="icons/icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="128x128" href="icons/icon-128x128.png">
+
+    <!-- Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-96x96.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'impakto-black': '#050505',
+                        'impakto-red': '#ff2a75',
+                        'impakto-dark': '#111827',
+                        'impakto-gray': '#8b949e',
+                        'impakto-light': '#c9d1d9',
+                    },
+                    fontFamily: {
+                        sans: ['Poppins', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="flex h-screen overflow-hidden font-sans selection:bg-impakto-red selection:text-white">
+
+    <!-- 3D Loader -->
+    <div id="loader">
+        <div class="gear-container">
+            <i class="fas fa-cog gear-3d"></i>
+        </div>
+        <div class="text-white font-bold tracking-widest text-xl neon-text">IMPAKTO <span class="text-impakto-red">TV</span></div>
+        <div class="text-impakto-gray text-xs mt-4 animate-pulse">CARGANDO SISTEMA...</div>
+    </div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="glass-panel w-64 flex-shrink-0 border-r border-impakto-dark/50 flex flex-col transition-all duration-300 absolute md:relative z-20 h-full -translate-x-full md:translate-x-0">
+        <div class="p-6 border-b border-impakto-dark/50 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-white tracking-wider">
+                CONTROL <span class="text-impakto-red neon-text">IMPAKTO</span>
+            </h1>
+            <button id="closeSidebarBtn" class="md:hidden text-impakto-gray hover:text-impakto-red">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <nav class="flex-1 p-4 space-y-3 overflow-y-auto">
+            <a href="#" class="nav-item active flex items-center gap-3 p-3.5 rounded-2xl bg-impakto-red text-white shadow-[0_8px_20px_rgba(255,42,117,0.3)] transition-all" data-target="dashboard">
+                <i class="fas fa-chart-line w-5"></i>
+                <span class="font-medium">Dashboard</span>
+            </a>
+            <a href="#" class="nav-item flex items-center gap-3 p-3.5 rounded-2xl text-impakto-light hover:bg-impakto-dark hover:text-white transition-all group border border-transparent hover:border-impakto-gray/20" data-target="cuentas">
+                <i class="fas fa-list w-5 group-hover:text-impakto-red transition-colors"></i>
+                <span class="font-medium">Cuentas Cargadas</span>
+            </a>
+            <a href="#" class="nav-item flex items-center gap-3 p-3.5 rounded-2xl text-impakto-light hover:bg-impakto-dark hover:text-white transition-all group border border-transparent hover:border-impakto-gray/20" data-target="agregar">
+                <i class="fas fa-plus-circle w-5 group-hover:text-impakto-red transition-colors"></i>
+                <span class="font-medium">Agregar Cuenta</span>
+            </a>
+        </nav>
+        
+        <div class="p-4 border-t border-impakto-dark/50 text-xs text-impakto-gray text-center">
+            &copy; 2026 IMPAKTO TV<br>Panel de Administración
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col w-full min-w-0 overflow-hidden relative">
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black/60 z-10 hidden md:hidden backdrop-blur-sm"></div>
+
+        <!-- Navbar -->
+        <header class="glass-panel h-16 flex items-center justify-between px-6 border-b border-impakto-dark/50 z-10">
+            <div class="flex items-center gap-4">
+                <button id="openSidebarBtn" class="md:hidden text-impakto-light hover:text-impakto-red transition-colors">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <div class="md:hidden text-lg font-bold text-white tracking-wider">
+                    <span class="text-impakto-red neon-text">IMPAKTO</span> TV
+                </div>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="hidden sm:block text-sm font-medium text-impakto-gray">
+                    Panel de Administración
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Scrollable Area -->
+        <main class="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 relative">
+            
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="section-content active">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-white mb-2">Bienvenido al <span class="text-impakto-red neon-text">Control Impakto TV</span></h2>
+                    <p class="text-impakto-gray">Resumen general del estado de las cuentas.</p>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="glass-panel p-8 rounded-3xl hover-neon transition-all duration-300 relative overflow-hidden group">
+                        <div class="absolute -right-4 -top-4 w-24 h-24 bg-impakto-red/10 rounded-full blur-xl group-hover:bg-impakto-red/20 transition-all"></div>
+                        <div class="flex justify-between items-start relative z-10">
+                            <div>
+                                <p class="text-impakto-gray text-sm font-medium mb-1">Total Cuentas</p>
+                                <h3 id="statTotal" class="text-3xl font-bold text-white">0</h3>
+                            </div>
+                            <div class="w-12 h-12 rounded-lg bg-impakto-dark/80 flex items-center justify-center border border-impakto-dark">
+                                <i class="fas fa-users text-impakto-light text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-panel p-8 rounded-3xl hover-neon transition-all duration-300 relative overflow-hidden group">
+                        <div class="absolute -right-4 -top-4 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all"></div>
+                        <div class="flex justify-between items-start relative z-10">
+                            <div>
+                                <p class="text-impakto-gray text-sm font-medium mb-1">Total Clientes</p>
+                                <h3 id="statClientes" class="text-3xl font-bold text-white">0</h3>
+                            </div>
+                            <div class="w-12 h-12 rounded-lg bg-impakto-dark/80 flex items-center justify-center border border-impakto-dark">
+                                <i class="fas fa-tv text-purple-400 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-8 rounded-3xl hover-neon transition-all duration-300 relative overflow-hidden group">
+                        <div class="absolute -right-4 -top-4 w-24 h-24 bg-red-500/10 rounded-full blur-xl group-hover:bg-red-500/20 transition-all"></div>
+                        <div class="flex justify-between items-start relative z-10">
+                            <div>
+                                <p class="text-impakto-gray text-sm font-medium mb-1">Vencen este mes</p>
+                                <h3 id="statMes" class="text-3xl font-bold text-white">0</h3>
+                            </div>
+                            <div class="w-12 h-12 rounded-lg bg-impakto-dark/80 flex items-center justify-center border border-impakto-dark">
+                                <i class="fas fa-calendar-times text-impakto-red text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-8 rounded-3xl hover-neon transition-all duration-300 relative overflow-hidden group">
+                        <div class="absolute -right-4 -top-4 w-24 h-24 bg-yellow-500/10 rounded-full blur-xl group-hover:bg-yellow-500/20 transition-all"></div>
+                        <div class="flex justify-between items-start relative z-10">
+                            <div>
+                                <p class="text-impakto-gray text-sm font-medium mb-1">Próximo Vencimiento</p>
+                                <h3 id="statProximo" class="text-xl font-bold text-white mt-2">-</h3>
+                            </div>
+                            <div class="w-12 h-12 rounded-lg bg-impakto-dark/80 flex items-center justify-center border border-impakto-dark">
+                                <i class="fas fa-clock text-yellow-500 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart -->
+                <div class="glass-panel p-8 rounded-3xl">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-semibold text-white">Vencimientos Próximos 6 Meses</h3>
+                        <i class="fas fa-chart-bar text-impakto-gray"></i>
+                    </div>
+                    <div class="relative h-[300px] w-full">
+                        <canvas id="vencimientosChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Cuentas Section -->
+            <section id="cuentas" class="section-content h-full flex flex-col">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div>
+                        <h2 class="text-3xl font-bold text-white mb-1">Cuentas Cargadas</h2>
+                        <p class="text-impakto-gray">Gestiona todas las suscripciones y sus clientes.</p>
+                    </div>
+                    
+                    <div class="flex gap-3 w-full sm:w-auto">
+                        <div class="relative w-full sm:w-64">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-impakto-gray"></i>
+                            <input type="text" id="searchInput" placeholder="Buscar cuenta o cliente..." class="w-full bg-impakto-black border border-impakto-gray/20 text-white rounded-full pl-11 pr-4 py-2.5 focus:outline-none focus:border-impakto-red focus:ring-1 focus:ring-impakto-red transition-all shadow-inner">
+                        </div>
+                        <button id="btnSort" class="glass-panel px-5 py-2.5 rounded-full text-impakto-light hover:text-white hover:border-impakto-red/50 transition-all flex items-center gap-2" title="Ordenar por fecha">
+                            <i class="fas fa-sort-amount-down"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cards de cuentas -->
+                <div id="cuentasContainer" class="space-y-4"></div>
+
+                <!-- Estado vacío -->
+                <div id="emptyState" class="hidden flex-col items-center justify-center p-12 text-center">
+                    <div class="w-20 h-20 bg-impakto-dark rounded-full flex items-center justify-center mb-4">
+                        <i class="fas fa-inbox text-3xl text-impakto-gray"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-white mb-2">No hay cuentas</h3>
+                    <p class="text-impakto-gray mb-6">Aún no has agregado ninguna cuenta o tu búsqueda no dio resultados.</p>
+                    <button onclick="document.querySelector('[data-target=\'agregar\']').click()" class="bg-impakto-red hover:bg-[#e01f65] text-white font-medium px-8 py-3 rounded-full transition-all shadow-[0_0_15px_rgba(255,42,117,0.4)] hover:shadow-[0_0_25px_rgba(255,42,117,0.6)] hover:-translate-y-1">
+                        Agregar Cuenta
+                    </button>
+                </div>
+            </section>
+
+            <!-- Agregar / Editar Section -->
+            <section id="agregar" class="section-content max-w-3xl mx-auto mt-4 pb-8">
+                <div class="mb-8 text-center">
+                    <h2 class="text-3xl font-bold text-white mb-2" id="formTitle">Agregar Nueva Cuenta</h2>
+                    <p class="text-impakto-gray">Ingresa los datos de la cuenta y sus clientes (Teles).</p>
+                </div>
+
+                <form id="addForm" class="space-y-6">
+                    <input type="hidden" id="editId">
+
+                    <!-- Bloque datos de la cuenta -->
+                    <div class="glass-panel p-6 md:p-8 rounded-2xl hover-neon transition-all duration-300">
+                        <h3 class="text-lg font-semibold text-white mb-5 flex items-center gap-2">
+                            <i class="fas fa-key text-impakto-red"></i> Datos de la Cuenta
+                        </h3>
+                        <div class="space-y-5">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-sm font-medium text-impakto-light mb-2" for="email">Correo Electrónico *</label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <i class="fas fa-envelope text-impakto-gray"></i>
+                                        </div>
+                                        <input type="email" id="email" required class="block w-full bg-impakto-black border border-impakto-gray/20 rounded-xl pl-10 pr-3 py-3 text-white focus:outline-none focus:border-impakto-red focus:ring-1 focus:ring-impakto-red transition-all shadow-inner placeholder-impakto-gray/50" placeholder="usuario@ejemplo.com">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-impakto-light mb-2" for="password">Contraseña *</label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <i class="fas fa-lock text-impakto-gray"></i>
+                                        </div>
+                                        <input type="password" id="password" required class="block w-full bg-impakto-black border border-impakto-gray/20 rounded-xl pl-10 pr-10 py-3 text-white focus:outline-none focus:border-impakto-red focus:ring-1 focus:ring-impakto-red transition-all shadow-inner placeholder-impakto-gray/50" placeholder="••••••••">
+                                        <button type="button" class="toggle-pwd absolute inset-y-0 right-0 pr-3 flex items-center text-impakto-gray hover:text-white transition-colors">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-sm font-medium text-impakto-light mb-2" for="tipo">Tipo de Cuenta *</label>
+                                    <select id="tipo" required class="block w-full bg-impakto-black border border-impakto-gray/20 rounded-xl px-3 py-3 text-white focus:outline-none focus:border-impakto-red focus:ring-1 focus:ring-impakto-red transition-all shadow-inner appearance-none">
+                                        <option value="individual">Individual (1 Persona)</option>
+                                        <option value="multiple">Múltiple (Varias Personas)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-impakto-light mb-2" for="fecha">Fecha de Vencimiento *</label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <i class="fas fa-calendar-alt text-impakto-gray"></i>
+                                        </div>
+                                        <input type="date" id="fecha" required class="block w-full bg-impakto-black border border-impakto-gray/20 rounded-xl pl-10 pr-3 py-3 text-white focus:outline-none focus:border-impakto-red focus:ring-1 focus:ring-impakto-red transition-all shadow-inner">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-sm font-medium text-impakto-light mb-2">Foto de la Cuenta (Opcional)</label>
+                                    <div class="flex items-center gap-4">
+                                        <div id="previewContainer">
+                                            <i class="fas fa-image text-2xl text-impakto-gray"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <input type="file" id="fotoInput" accept="image/*" class="hidden">
+                                            <button type="button" onclick="document.getElementById('fotoInput').click()" class="bg-impakto-dark hover:bg-gray-800 text-white px-4 py-2 rounded-xl border border-impakto-gray/20 text-sm transition-all">
+                                                <i class="fas fa-upload mr-2"></i>Seleccionar Imagen
+                                            </button>
+                                            <p class="text-[10px] text-impakto-gray mt-2">JPG, PNG, GIF. Máx 1MB.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-impakto-light mb-2" for="nota">Nota (Opcional)</label>
+                                    <div class="relative">
+                                        <div class="absolute top-3 left-3 pointer-events-none">
+                                            <i class="fas fa-sticky-note text-impakto-gray"></i>
+                                        </div>
+                                        <textarea id="nota" rows="2" class="block w-full bg-impakto-black border border-impakto-gray/20 rounded-xl pl-10 pr-3 py-3 text-white focus:outline-none focus:border-impakto-red focus:ring-1 focus:ring-impakto-red transition-all shadow-inner placeholder-impakto-gray/50 resize-none" placeholder="Notas de la cuenta..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bloque de Teles / Clientes -->
+                    <div class="glass-panel p-6 md:p-8 rounded-2xl">
+                        <div class="flex items-center justify-between mb-5">
+                            <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                                <i class="fas fa-tv text-impakto-red"></i> Clientes / Teles
+                            </h3>
+                            <button type="button" id="btnAddTele" class="flex items-center gap-2 text-sm bg-impakto-red/10 hover:bg-impakto-red/20 text-impakto-red border border-impakto-red/30 px-4 py-2 rounded-full transition-all">
+                                <i class="fas fa-plus"></i> Agregar Tele
+                            </button>
+                        </div>
+
+                        <div id="telesContainer" class="space-y-4">
+                            <!-- Teles se generan por JS -->
+                        </div>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="flex gap-4">
+                        <button type="button" id="btnCancelAdd" class="hidden flex-1 bg-impakto-dark hover:bg-gray-800 text-white font-medium py-3 px-6 rounded-full transition-colors border border-impakto-gray/20">
+                            Cancelar Edición
+                        </button>
+                        <button type="submit" id="btnSubmitAdd" class="flex-1 bg-impakto-red hover:bg-[#e01f65] text-white font-semibold py-3 px-6 rounded-full transition-all shadow-[0_0_20px_rgba(255,42,117,0.4)] hover:shadow-[0_0_30px_rgba(255,42,117,0.6)] transform hover:-translate-y-1 flex justify-center items-center gap-2">
+                            <i class="fas fa-save"></i>
+                            <span id="txtSubmitAdd">Cargar Cuenta</span>
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Notificación Toast -->
+                <div id="toast" class="fixed bottom-4 right-4 translate-y-[150%] bg-green-500/90 text-white px-6 py-3 rounded-lg shadow-lg backdrop-blur-sm transition-transform duration-300 flex items-center gap-3 z-50">
+                    <i class="fas fa-check-circle"></i>
+                    <span id="toastMsg">Operación exitosa</span>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Modal Editar Tele individual -->
+    <div id="modalEditTele" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="glass-panel rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <i class="fas fa-edit text-impakto-red"></i> Editar Cliente / Tele
+            </h3>
+            <input type="hidden" id="modalCuentaId">
+            <input type="hidden" id="modalTeleIndex">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-impakto-light mb-1">Nombre</label>
+                    <div class="relative">
+                        <i class="fas fa-user absolute left-3 top-1/2 -translate-y-1/2 text-impakto-gray"></i>
+                        <input type="text" id="modalNombre" class="block w-full bg-impakto-black border border-impakto-gray/20 rounded-xl pl-10 pr-3 py-2.5 text-white focus:outline-none focus:border-impakto-red transition-all" placeholder="Juan Pérez">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-impakto-light mb-1">Teléfono</label>
+                    <div class="relative">
+                        <i class="fas fa-phone absolute left-3 top-1/2 -translate-y-1/2 text-impakto-gray"></i>
+                        <input type="tel" id="modalTelefono" class="block w-full bg-impakto-black border border-impakto-gray/20 rounded-xl pl-10 pr-3 py-2.5 text-white focus:outline-none focus:border-impakto-red transition-all" placeholder="11 2345-6789">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-impakto-light mb-1">Dirección</label>
+                    <div class="relative">
+                        <i class="fas fa-map-marker-alt absolute left-3 top-1/2 -translate-y-1/2 text-impakto-gray"></i>
+                        <input type="text" id="modalDireccion" class="block w-full bg-impakto-black border border-impakto-gray/20 rounded-xl pl-10 pr-3 py-2.5 text-white focus:outline-none focus:border-impakto-red transition-all" placeholder="Calle 123, Barrio...">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-impakto-light mb-1">Cuotas Abonadas</label>
+                        <div class="relative">
+                            <i class="fas fa-receipt absolute left-3 top-1/2 -translate-y-1/2 text-impakto-gray"></i>
+                            <input type="number" id="modalCuotas" min="0" value="0" class="block w-full bg-impakto-black border border-impakto-gray/20 rounded-xl pl-10 pr-3 py-2.5 text-white focus:outline-none focus:border-impakto-red transition-all">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-impakto-light mb-1">Deuda ($)</label>
+                        <div class="relative">
+                            <i class="fas fa-money-bill-wave absolute left-3 top-1/2 -translate-y-1/2 text-impakto-gray"></i>
+                            <input type="number" id="modalDeuda" min="0" value="0" class="block w-full bg-impakto-black border border-impakto-gray/20 rounded-xl pl-10 pr-3 py-2.5 text-white focus:outline-none focus:border-impakto-red transition-all">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="cerrarModalTele()" class="flex-1 bg-impakto-dark hover:bg-gray-800 text-white font-medium py-2.5 px-4 rounded-full transition-colors border border-impakto-gray/20">Cancelar</button>
+                <button type="button" onclick="guardarModalTele()" class="flex-1 bg-impakto-red hover:bg-[#e01f65] text-white font-semibold py-2.5 px-4 rounded-full transition-all">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+
+    <!-- PWA: Registro del Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('[PWA] Service Worker registrado:', reg.scope))
+                    .catch(err => console.warn('[PWA] Error al registrar SW:', err));
+            });
+        }
+
+        // Banner de instalación personalizado
+        let deferredPrompt;
+        const installBanner = document.createElement('div');
+        installBanner.id = 'pwa-install-banner';
+        installBanner.innerHTML = `
+            <div style="
+                position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(200px);
+                background: linear-gradient(135deg, #1a1a2e, #16213e);
+                border: 1px solid rgba(255,42,117,0.4);
+                border-radius: 16px; padding: 14px 20px;
+                display: flex; align-items: center; gap: 14px;
+                box-shadow: 0 8px 32px rgba(255,42,117,0.25), 0 0 0 1px rgba(255,42,117,0.1);
+                z-index: 9999; min-width: 300px; max-width: 90vw;
+                transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+                backdrop-filter: blur(12px);
+            " id="pwa-banner-inner">
+                <img src="icons/icon-72x72.png" style="width:44px;height:44px;border-radius:10px;flex-shrink:0;" alt="IMPAKTO TV">
+                <div style="flex:1;min-width:0;">
+                    <div style="color:#fff;font-weight:600;font-size:14px;font-family:Poppins,sans-serif;">Instalar IMPAKTO TV</div>
+                    <div style="color:#8b949e;font-size:12px;font-family:Poppins,sans-serif;">Agregar a tu pantalla de inicio</div>
+                </div>
+                <button id="pwa-install-btn" style="
+                    background: #ff2a75; color: #fff; border: none; border-radius: 10px;
+                    padding: 8px 16px; font-weight: 600; font-size: 13px; cursor: pointer;
+                    font-family: Poppins,sans-serif; white-space: nowrap;
+                    box-shadow: 0 0 15px rgba(255,42,117,0.4);
+                ">Instalar</button>
+                <button id="pwa-dismiss-btn" style="
+                    background: transparent; color: #8b949e; border: none;
+                    font-size: 18px; cursor: pointer; padding: 4px 6px; line-height:1;
+                ">&times;</button>
+            </div>
+        `;
+        document.body.appendChild(installBanner);
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Show banner after 2 seconds
+            setTimeout(() => {
+                const inner = document.getElementById('pwa-banner-inner');
+                if (inner) inner.style.transform = 'translateY(0)';
+            }, 2000);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'pwa-install-btn' && deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(choice => {
+                    if (choice.outcome === 'accepted') {
+                        console.log('[PWA] App instalada!');
+                    }
+                    deferredPrompt = null;
+                    const inner = document.getElementById('pwa-banner-inner');
+                    if (inner) inner.style.transform = 'translateY(200px)';
+                });
+            }
+            if (e.target.id === 'pwa-dismiss-btn') {
+                const inner = document.getElementById('pwa-banner-inner');
+                if (inner) inner.style.transform = 'translateY(200px)';
+            }
+        });
+
+        window.addEventListener('appinstalled', () => {
+            console.log('[PWA] App instalada correctamente');
+            const inner = document.getElementById('pwa-banner-inner');
+            if (inner) inner.style.transform = 'translateY(200px)';
+        });
+    </script>
+</body>
+</html>
